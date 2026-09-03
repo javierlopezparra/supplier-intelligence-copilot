@@ -1,87 +1,60 @@
 # Supplier Intelligence Copilot
 
-AI-powered RAG assistant for supplier document intelligence
-and procurement workflows.
+Asistente de inteligencia de proveedores basado en Inteligencia Artificial y RAG
+(Retrieval-Augmented Generation).
 
-## Problem
+El proyecto permite consultar y comparar información contenida en documentos PDF
+de proveedores utilizando búsqueda semántica, una base vectorial y un modelo de
+lenguaje ejecutado localmente.
 
-Supplier and procurement teams manage large volumes of
-documents containing information such as:
+> Todos los proveedores y documentos incluidos en este repositorio son ficticios
+> y fueron creados exclusivamente con fines de demostración.
 
-- Lead times
-- Payment terms
-- Certifications
-- Capacity
-- Products
-- Coverage
-- Commercial conditions
+---
 
-Finding this information manually can be slow and repetitive.
+## Problema
 
-## Solution
+En compras y cadena de suministro es común tener información de proveedores
+distribuida entre diferentes documentos.
 
-Supplier Intelligence Copilot transforms supplier documents
-into a searchable semantic knowledge base.
+Por ejemplo:
 
-The system currently:
+- tiempos de entrega
+- condiciones de pago
+- capacidad instalada
+- certificaciones
+- categorías de productos
+- cobertura
+- información comercial
 
-1. Reads supplier PDF documents
-2. Extracts document text
-3. Splits text into contextual chunks
-4. Generates multilingual embeddings
-5. Performs semantic search
-6. Retrieves the most relevant information for a question
+Buscar y comparar esta información manualmente puede consumir tiempo y generar
+errores.
 
-## Example
+---
 
-Question:
+## Solución
 
-"¿Cuánto tarda el proveedor en entregar?"
+Supplier Intelligence Copilot convierte documentos de proveedores en una base
+de conocimiento que puede ser consultada mediante preguntas en lenguaje natural.
 
-Retrieved context:
+Actualmente el sistema puede:
 
-"Lead Time: 15 calendar days"
+- leer varios documentos PDF
+- extraer su contenido
+- dividir la información en fragmentos
+- generar embeddings
+- almacenar la información en ChromaDB
+- buscar información por significado
+- responder preguntas mediante un modelo de IA local
+- comparar varios proveedores
+- indicar las fuentes utilizadas
+- evitar responder cuando la información no existe en los documentos
 
-Similarity score: 0.5095
+---
 
-## Architecture
+## Ejemplo
 
-PDF
-↓
-Document Loader
-↓
-Text Chunking
-↓
-Embeddings
-↓
-Semantic Search
-↓
-Vector Store
-↓
-RAG
-↓
-LLM
+Pregunta:
 
-## Tech Stack
-
-- Python
-- PyPDF
-- Sentence Transformers
-- NumPy
-- Hugging Face
-- ChromaDB (next stage)
-- Docker (planned)
-
-## Project Status
-
-- [x] PDF ingestion
-- [x] Text extraction
-- [x] Chunking
-- [x] Multilingual embeddings
-- [x] Semantic search
-- [ ] Persistent vector database
-- [ ] RAG response generation
-- [ ] Source citations
-- [ ] API
-- [ ] Docker
-- [ ] Azure deployment
+```text
+¿Qué proveedor tiene el menor tiempo de entrega?
