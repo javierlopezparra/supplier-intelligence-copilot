@@ -1,0 +1,26 @@
+[
+    {
+        "name": "PackPro Norte",
+        "lead_time_days": 8,
+        "monthly_capacity": 180000,
+        "payment_terms_days": 30
+    },
+    {
+        "name": "Empaques Delta Solutions",
+        "lead_time_days": 12,
+        "monthly_capacity": 300000,
+        "payment_terms_days": 45
+    },
+    {
+        "name": "NovaPack Industrial Solutions",
+        "lead_time_days": 15,
+        "monthly_capacity": 250000,
+        "payment_terms_days": 30
+    },
+    {
+        "name": "FlexiPack Mexico",
+        "lead_time_days": 20,
+        "monthly_capacity": 400000,
+        "payment_terms_days": 60
+    }
+]
