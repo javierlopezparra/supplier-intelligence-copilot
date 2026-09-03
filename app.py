@@ -12,52 +12,59 @@ def main():
     print("SUPPLIER INTELLIGENCE COPILOT")
     print("=" * 60)
 
-    pdf_path = "data/raw/sample_supplier.pdf"
-    source = Path(pdf_path).name
+    data_path = Path("data/raw")
+    pdf_files = sorted(data_path.glob("*.pdf"))
 
-    # 1. Leer documento
-    text = extract_text_from_pdf(pdf_path)
-    print("\nDocument loaded successfully.")
+    if not pdf_files:
+        print("\nNo se encontraron documentos PDF en data/raw/")
+        return
 
-    # 2. Crear chunks
-    chunks = chunk_text(
-        text=text,
-        chunk_size=180,
-        overlap=40,
-    )
+    print(f"\nDocumentos encontrados: {len(pdf_files)}")
 
-    print(f"Total chunks created: {len(chunks)}")
-
-    # 3. Cargar modelo de embeddings
+    # 1. Cargar modelo de embeddings una sola vez
     print("\nLoading embedding model...")
     embedding_model = EmbeddingModel()
 
-    # 4. Crear embeddings del documento
-    document_embeddings = embedding_model.encode_documents(chunks)
-
-    print(f"Embeddings created: {document_embeddings.shape}")
-
-    # 5. Vector Store
+    # 2. Inicializar Vector Store
     vector_store = VectorStore()
 
-    vector_store.upsert_chunks(
-        chunks=chunks,
-        embeddings=document_embeddings,
-        source=source,
-    )
+    # 3. Procesar todos los PDFs
+    for pdf_path in pdf_files:
+        source = pdf_path.name
 
-    print(f"Vectors stored: {vector_store.count()}")
+        print("\n" + "-" * 60)
+        print(f"Procesando: {source}")
 
-    # 6. Iniciar LLM local
-    rag_generator = RAGGenerator()
+        text = extract_text_from_pdf(str(pdf_path))
+
+        chunks = chunk_text(
+            text=text,
+            chunk_size=700,
+            overlap=100,
+        )
+
+        print(f"Chunks created: {len(chunks)}")
+
+        document_embeddings = embedding_model.encode_documents(chunks)
+
+        vector_store.upsert_chunks(
+            chunks=chunks,
+            embeddings=document_embeddings,
+            source=source,
+        )
 
     print("\n" + "=" * 60)
-    print("COPILOT READY")
+    print(f"Vectors stored: {vector_store.count()}")
     print("=" * 60)
-    print("Haz preguntas sobre el proveedor.")
+
+    # 4. Iniciar LLM local
+    rag_generator = RAGGenerator()
+
+    print("\nCOPILOT READY")
+    print("Puedes preguntar o comparar proveedores.")
     print("Escribe 'salir' para terminar.\n")
 
-    # 7. Sesión interactiva
+    # 5. Sesión interactiva
     while True:
         query = input("Pregunta > ").strip()
 
@@ -68,13 +75,13 @@ def main():
             print("\nSesión finalizada.")
             break
 
-        # 8. Embedding de la pregunta
+        # 6. Crear embedding de la pregunta
         query_embedding = embedding_model.encode_query(query)
 
-        # 9. Recuperar contexto desde ChromaDB
+        # 7. Recuperar contexto relevante
         results = vector_store.search(
             query_embedding=query_embedding,
-            top_k=3,
+            top_k=min(6, vector_store.count()),
         )
 
         documents = results["documents"][0]
@@ -94,7 +101,7 @@ def main():
                 }
             )
 
-        # 10. Generar respuesta
+        # 8. Generar respuesta con el LLM
         answer = rag_generator.generate_answer(
             question=query,
             contexts=contexts,

@@ -23,6 +23,11 @@ class VectorStore:
         embeddings,
         source: str,
     ):
+        # Eliminar todos los chunks anteriores de este documento
+        self.collection.delete(
+            where={"source": source}
+        )
+
         ids = [
             f"{source}-chunk-{index}"
             for index in range(len(chunks))
