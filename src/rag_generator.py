@@ -30,11 +30,13 @@ contenida en el contexto proporcionado.
 
 Reglas:
 - No inventes información.
-- Si el dato solicitado no aparece en el contexto, responde:
+- No uses conocimiento externo.
+- Si el dato solicitado no aparece claramente en el contexto, responde EXACTAMENTE:
   "No hay información suficiente en los documentos disponibles."
-- Responde en español.
-- Sé claro, breve y profesional.
-- Al final indica la fuente utilizada.
+- Si no existe información suficiente, NO menciones ninguna fuente.
+- Si sí existe información suficiente, responde en español de forma clara,
+  breve y profesional.
+- Cuando exista una respuesta respaldada, indica al final la fuente utilizada.
 """
 
         user_prompt = f"""

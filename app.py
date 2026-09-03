@@ -28,11 +28,11 @@ def main():
 
     print(f"Total chunks created: {len(chunks)}")
 
-    # 3. Modelo de embeddings
+    # 3. Cargar modelo de embeddings
     print("\nLoading embedding model...")
     embedding_model = EmbeddingModel()
 
-    # 4. Embeddings
+    # 4. Crear embeddings del documento
     document_embeddings = embedding_model.encode_documents(chunks)
 
     print(f"Embeddings created: {document_embeddings.shape}")
@@ -48,51 +48,61 @@ def main():
 
     print(f"Vectors stored: {vector_store.count()}")
 
-    # 6. Pregunta del usuario
-    query = "¿Cuánto tarda el proveedor en entregar?"
-
-    print(f"\nQuestion: {query}")
-
-    # 7. Embedding de la pregunta
-    query_embedding = embedding_model.encode_query(query)
-
-    # 8. Recuperar contexto desde ChromaDB
-    results = vector_store.search(
-        query_embedding=query_embedding,
-        top_k=3,
-    )
-
-    documents = results["documents"][0]
-    metadatas = results["metadatas"][0]
-
-    contexts = []
-
-    for document, metadata in zip(
-        documents,
-        metadatas,
-    ):
-        contexts.append(
-            {
-                "text": document,
-                "source": metadata["source"],
-                "chunk_index": metadata["chunk_index"],
-            }
-        )
-
-    # 9. Generar respuesta con LLM local
-    print("\nGenerating RAG answer with Ollama...\n")
-
+    # 6. Iniciar LLM local
     rag_generator = RAGGenerator()
 
-    answer = rag_generator.generate_answer(
-        question=query,
-        contexts=contexts,
-    )
+    print("\n" + "=" * 60)
+    print("COPILOT READY")
+    print("=" * 60)
+    print("Haz preguntas sobre el proveedor.")
+    print("Escribe 'salir' para terminar.\n")
 
-    print("=" * 60)
-    print("ANSWER")
-    print("=" * 60)
-    print(answer)
+    # 7. Sesión interactiva
+    while True:
+        query = input("Pregunta > ").strip()
+
+        if not query:
+            continue
+
+        if query.lower() in {"salir", "exit", "quit"}:
+            print("\nSesión finalizada.")
+            break
+
+        # 8. Embedding de la pregunta
+        query_embedding = embedding_model.encode_query(query)
+
+        # 9. Recuperar contexto desde ChromaDB
+        results = vector_store.search(
+            query_embedding=query_embedding,
+            top_k=3,
+        )
+
+        documents = results["documents"][0]
+        metadatas = results["metadatas"][0]
+
+        contexts = []
+
+        for document, metadata in zip(
+            documents,
+            metadatas,
+        ):
+            contexts.append(
+                {
+                    "text": document,
+                    "source": metadata["source"],
+                    "chunk_index": metadata["chunk_index"],
+                }
+            )
+
+        # 10. Generar respuesta
+        answer = rag_generator.generate_answer(
+            question=query,
+            contexts=contexts,
+        )
+
+        print("\nRespuesta:")
+        print(answer)
+        print()
 
 
 if __name__ == "__main__":
