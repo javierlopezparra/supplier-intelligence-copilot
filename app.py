@@ -1,8 +1,9 @@
 from pathlib import Path
 
 from src.document_loader import extract_text_from_pdf
-from src.text_chunker import chunk_text
 from src.embedding_model import EmbeddingModel
+from src.rag_generator import RAGGenerator
+from src.text_chunker import chunk_text
 from src.vector_store import VectorStore
 
 
@@ -27,65 +28,71 @@ def main():
 
     print(f"Total chunks created: {len(chunks)}")
 
-    # 3. Cargar modelo de embeddings
+    # 3. Modelo de embeddings
     print("\nLoading embedding model...")
     embedding_model = EmbeddingModel()
 
-    # 4. Crear embeddings
+    # 4. Embeddings
     document_embeddings = embedding_model.encode_documents(chunks)
 
     print(f"Embeddings created: {document_embeddings.shape}")
 
-    # 5. Inicializar ChromaDB
+    # 5. Vector Store
     vector_store = VectorStore()
 
-    # 6. Guardar chunks y embeddings
     vector_store.upsert_chunks(
         chunks=chunks,
         embeddings=document_embeddings,
         source=source,
     )
 
-    print(f"\nVectors stored: {vector_store.count()}")
+    print(f"Vectors stored: {vector_store.count()}")
 
-    # 7. Pregunta
+    # 6. Pregunta del usuario
     query = "¿Cuánto tarda el proveedor en entregar?"
 
     print(f"\nQuestion: {query}")
 
-    # 8. Crear embedding de la pregunta
+    # 7. Embedding de la pregunta
     query_embedding = embedding_model.encode_query(query)
 
-    # 9. Buscar en Vector Store
+    # 8. Recuperar contexto desde ChromaDB
     results = vector_store.search(
         query_embedding=query_embedding,
         top_k=3,
     )
 
-    print("\nMost relevant chunks:")
-
     documents = results["documents"][0]
     metadatas = results["metadatas"][0]
-    distances = results["distances"][0]
 
-    for position, (document, metadata, distance) in enumerate(
-        zip(documents, metadatas, distances),
-        start=1,
+    contexts = []
+
+    for document, metadata in zip(
+        documents,
+        metadatas,
     ):
-        print("\n" + "-" * 60)
-
-        print(
-            f"RESULT {position} | "
-            f"Distance: {distance:.4f}"
+        contexts.append(
+            {
+                "text": document,
+                "source": metadata["source"],
+                "chunk_index": metadata["chunk_index"],
+            }
         )
 
-        print(
-            f"Source: {metadata['source']} | "
-            f"Chunk: {metadata['chunk_index']}"
-        )
+    # 9. Generar respuesta con LLM local
+    print("\nGenerating RAG answer with Ollama...\n")
 
-        print("-" * 60)
-        print(document)
+    rag_generator = RAGGenerator()
+
+    answer = rag_generator.generate_answer(
+        question=query,
+        contexts=contexts,
+    )
+
+    print("=" * 60)
+    print("ANSWER")
+    print("=" * 60)
+    print(answer)
 
 
 if __name__ == "__main__":
