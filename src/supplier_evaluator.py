@@ -103,13 +103,22 @@ class SupplierEvaluator:
 
             results.append(
                 {
-                    "name": supplier["name"],
-                    "lead_time_score": round(lead_time_score, 2),
-                    "capacity_score": round(capacity_score, 2),
-                    "payment_terms_score": round(payment_score, 2),
-                    "final_score": round(final_score, 2),
-                }
-            )
+                     "name": supplier["name"],
+
+        # Valores reales
+        "lead_time_days": supplier["lead_time_days"],
+        "monthly_capacity": supplier["monthly_capacity"],
+        "payment_terms_days": supplier["payment_terms_days"],
+
+        # Puntajes normalizados
+        "lead_time_score": round(lead_time_score, 2),
+        "capacity_score": round(capacity_score, 2),
+        "payment_terms_score": round(payment_score, 2),
+
+        # Resultado ponderado
+        "final_score": round(final_score, 2),
+    }
+)
 
         return sorted(
             results,
