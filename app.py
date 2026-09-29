@@ -1,3 +1,4 @@
+from hashlib import sha256
 from pathlib import Path
 
 from src.document_loader import extract_text_from_pdf
@@ -9,7 +10,24 @@ from src.text_chunker import chunk_text
 from src.vector_store import VectorStore
 
 
-def show_ranking(ranking: list[dict]):
+def calculate_file_hash(
+    file_path: Path,
+) -> str:
+    hash_object = sha256()
+
+    with open(file_path, "rb") as file:
+        for block in iter(
+            lambda: file.read(8192),
+            b"",
+        ):
+            hash_object.update(block)
+
+    return hash_object.hexdigest()
+
+
+def show_ranking(
+    ranking: list[dict],
+):
     print("\n" + "=" * 60)
     print("RANKING DE PROVEEDORES")
     print("=" * 60)
@@ -19,6 +37,7 @@ def show_ranking(ranking: list[dict]):
         start=1,
     ):
         print()
+
         print(
             f"{position}. {supplier['name']} "
             f"→ {supplier['final_score']} puntos"
@@ -48,29 +67,87 @@ def main():
     print("=" * 60)
 
     data_path = Path("data/raw")
-    pdf_files = sorted(data_path.glob("*.pdf"))
+    pdf_files = sorted(
+        data_path.glob("*.pdf")
+    )
 
     if not pdf_files:
-        print("\nNo se encontraron documentos PDF en data/raw/")
+        print(
+            "\nNo se encontraron documentos PDF "
+            "en data/raw/"
+        )
         return
 
-    print(f"\nDocumentos encontrados: {len(pdf_files)}")
+    print(
+        f"\nDocumentos encontrados: "
+        f"{len(pdf_files)}"
+    )
 
     # 1. Cargar modelo de embeddings
     print("\nLoading embedding model...")
+
     embedding_model = EmbeddingModel()
 
     # 2. Inicializar base vectorial
     vector_store = VectorStore()
 
-    # 3. Procesar documentos PDF
+    # 3. Eliminar del índice documentos
+    # que ya no existen en data/raw
+    current_sources = {
+        pdf_path.name
+        for pdf_path in pdf_files
+    }
+
+    removed_sources = (
+        vector_store.delete_missing_sources(
+            current_sources
+        )
+    )
+
+    if removed_sources:
+        print("\nDocumentos eliminados del índice:")
+
+        for source in removed_sources:
+            print(f"- {source}")
+
+    indexed_documents = 0
+    reused_documents = 0
+
+    # 4. Revisar todos los PDFs
     for pdf_path in pdf_files:
         source = pdf_path.name
 
         print("\n" + "-" * 60)
-        print(f"Procesando: {source}")
+        print(f"Revisando: {source}")
 
-        text = extract_text_from_pdf(str(pdf_path))
+        document_hash = calculate_file_hash(
+            pdf_path
+        )
+
+        needs_indexing = (
+            vector_store.source_needs_indexing(
+                source=source,
+                document_hash=document_hash,
+            )
+        )
+
+        if not needs_indexing:
+            print(
+                "Sin cambios. "
+                "Se reutiliza el índice existente."
+            )
+
+            reused_documents += 1
+            continue
+
+        print(
+            "Documento nuevo o modificado. "
+            "Procesando..."
+        )
+
+        text = extract_text_from_pdf(
+            str(pdf_path)
+        )
 
         chunks = chunk_text(
             text=text,
@@ -78,75 +155,124 @@ def main():
             overlap=100,
         )
 
-        print(f"Chunks created: {len(chunks)}")
+        print(
+            f"Chunks created: {len(chunks)}"
+        )
 
         document_embeddings = (
-            embedding_model.encode_documents(chunks)
+            embedding_model.encode_documents(
+                chunks
+            )
         )
 
         vector_store.upsert_chunks(
             chunks=chunks,
             embeddings=document_embeddings,
             source=source,
+            document_hash=document_hash,
         )
 
+        indexed_documents += 1
+
     print("\n" + "=" * 60)
-    print(f"Vectors stored: {vector_store.count()}")
+    print(
+        f"Vectors stored: "
+        f"{vector_store.count()}"
+    )
+
+    print(
+        f"Documentos indexados: "
+        f"{indexed_documents}"
+    )
+
+    print(
+        f"Documentos reutilizados: "
+        f"{reused_documents}"
+    )
+
     print("=" * 60)
 
-    # 4. Inicializar RAG
+    # 5. Inicializar RAG
     rag_generator = RAGGenerator()
 
-    # 5. Inicializar motor de evaluación
+    # 6. Inicializar evaluación
     evaluator = SupplierEvaluator()
-    suppliers = evaluator.load_suppliers()
-    ranking = evaluator.evaluate(suppliers)
 
-    # 6. Inicializar explicador con IA
+    suppliers = evaluator.load_suppliers()
+
+    ranking = evaluator.evaluate(
+        suppliers
+    )
+
+    # 7. Inicializar explicación con IA
     ranking_explainer = RankingExplainer()
 
     print("\nCOPILOT READY")
     print()
     print("Puedes:")
-    print("- Hacer preguntas sobre los proveedores.")
-    print("- Escribir 'ranking' para ver la evaluación.")
-    print("- Escribir 'explicar ranking' para obtener el análisis con IA.")
-    print("- Escribir 'salir' para terminar.")
+    print(
+        "- Hacer preguntas sobre "
+        "los proveedores."
+    )
+    print(
+        "- Escribir 'ranking' para "
+        "ver la evaluación."
+    )
+    print(
+        "- Escribir 'explicar ranking' "
+        "para obtener el análisis con IA."
+    )
+    print(
+        "- Escribir 'salir' para terminar."
+    )
     print()
 
-    # 7. Sesión interactiva
+    # 8. Sesión interactiva
     while True:
-        query = input("Pregunta > ").strip()
+        query = input(
+            "Pregunta > "
+        ).strip()
 
         if not query:
             continue
 
         command = query.lower()
 
-        if command in {"salir", "exit", "quit"}:
-            print("\nSesión finalizada.")
+        if command in {
+            "salir",
+            "exit",
+            "quit",
+        }:
+            print(
+                "\nSesión finalizada."
+            )
             break
 
-        # Mostrar ranking calculado por Python
         if command == "ranking":
             show_ranking(ranking)
             continue
 
-        # Explicar ranking utilizando Ollama
         if command in {
             "explicar ranking",
             "explica ranking",
             "analizar ranking",
         }:
-            print("\nGenerando explicación del ranking...\n")
+            print(
+                "\nGenerando explicación "
+                "del ranking...\n"
+            )
 
-            explanation = ranking_explainer.explain(
-                ranking=ranking,
-                weights=evaluator.weights,
+            explanation = (
+                ranking_explainer.explain(
+                    ranking=ranking,
+                    weights=evaluator.weights,
+                )
             )
 
             print("=" * 60)
-            print("EXPLICACIÓN DEL RANKING")
+            print(
+                "EXPLICACIÓN DEL RANKING"
+            )
             print("=" * 60)
             print()
             print(explanation)
@@ -154,16 +280,28 @@ def main():
 
             continue
 
-        # 8. Pregunta documental mediante RAG
-        query_embedding = embedding_model.encode_query(query)
+        # 9. Pregunta documental con RAG
+        query_embedding = (
+            embedding_model.encode_query(
+                query
+            )
+        )
 
         results = vector_store.search(
             query_embedding=query_embedding,
-            top_k=min(6, vector_store.count()),
+            top_k=min(
+                6,
+                vector_store.count(),
+            ),
         )
 
-        documents = results["documents"][0]
-        metadatas = results["metadatas"][0]
+        documents = (
+            results["documents"][0]
+        )
+
+        metadatas = (
+            results["metadatas"][0]
+        )
 
         contexts = []
 
@@ -174,14 +312,18 @@ def main():
             contexts.append(
                 {
                     "text": document,
-                    "source": metadata["source"],
-                    "chunk_index": metadata["chunk_index"],
+                    "source":
+                        metadata["source"],
+                    "chunk_index":
+                        metadata["chunk_index"],
                 }
             )
 
-        answer = rag_generator.generate_answer(
-            question=query,
-            contexts=contexts,
+        answer = (
+            rag_generator.generate_answer(
+                question=query,
+                contexts=contexts,
+            )
         )
 
         print("\nRespuesta:")
