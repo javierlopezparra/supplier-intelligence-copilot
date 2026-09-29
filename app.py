@@ -3,8 +3,43 @@ from pathlib import Path
 from src.document_loader import extract_text_from_pdf
 from src.embedding_model import EmbeddingModel
 from src.rag_generator import RAGGenerator
+from src.ranking_explainer import RankingExplainer
+from src.supplier_evaluator import SupplierEvaluator
 from src.text_chunker import chunk_text
 from src.vector_store import VectorStore
+
+
+def show_ranking(ranking: list[dict]):
+    print("\n" + "=" * 60)
+    print("RANKING DE PROVEEDORES")
+    print("=" * 60)
+
+    for position, supplier in enumerate(
+        ranking,
+        start=1,
+    ):
+        print()
+        print(
+            f"{position}. {supplier['name']} "
+            f"→ {supplier['final_score']} puntos"
+        )
+
+        print(
+            f"   Tiempo de entrega: "
+            f"{supplier['lead_time_days']} días"
+        )
+
+        print(
+            f"   Capacidad mensual: "
+            f"{supplier['monthly_capacity']:,} unidades"
+        )
+
+        print(
+            f"   Condiciones de pago: "
+            f"{supplier['payment_terms_days']} días"
+        )
+
+    print()
 
 
 def main():
@@ -21,14 +56,14 @@ def main():
 
     print(f"\nDocumentos encontrados: {len(pdf_files)}")
 
-    # 1. Cargar modelo de embeddings una sola vez
+    # 1. Cargar modelo de embeddings
     print("\nLoading embedding model...")
     embedding_model = EmbeddingModel()
 
-    # 2. Inicializar Vector Store
+    # 2. Inicializar base vectorial
     vector_store = VectorStore()
 
-    # 3. Procesar todos los PDFs
+    # 3. Procesar documentos PDF
     for pdf_path in pdf_files:
         source = pdf_path.name
 
@@ -45,7 +80,9 @@ def main():
 
         print(f"Chunks created: {len(chunks)}")
 
-        document_embeddings = embedding_model.encode_documents(chunks)
+        document_embeddings = (
+            embedding_model.encode_documents(chunks)
+        )
 
         vector_store.upsert_chunks(
             chunks=chunks,
@@ -57,28 +94,69 @@ def main():
     print(f"Vectors stored: {vector_store.count()}")
     print("=" * 60)
 
-    # 4. Iniciar LLM local
+    # 4. Inicializar RAG
     rag_generator = RAGGenerator()
 
-    print("\nCOPILOT READY")
-    print("Puedes preguntar o comparar proveedores.")
-    print("Escribe 'salir' para terminar.\n")
+    # 5. Inicializar motor de evaluación
+    evaluator = SupplierEvaluator()
+    suppliers = evaluator.load_suppliers()
+    ranking = evaluator.evaluate(suppliers)
 
-    # 5. Sesión interactiva
+    # 6. Inicializar explicador con IA
+    ranking_explainer = RankingExplainer()
+
+    print("\nCOPILOT READY")
+    print()
+    print("Puedes:")
+    print("- Hacer preguntas sobre los proveedores.")
+    print("- Escribir 'ranking' para ver la evaluación.")
+    print("- Escribir 'explicar ranking' para obtener el análisis con IA.")
+    print("- Escribir 'salir' para terminar.")
+    print()
+
+    # 7. Sesión interactiva
     while True:
         query = input("Pregunta > ").strip()
 
         if not query:
             continue
 
-        if query.lower() in {"salir", "exit", "quit"}:
+        command = query.lower()
+
+        if command in {"salir", "exit", "quit"}:
             print("\nSesión finalizada.")
             break
 
-        # 6. Crear embedding de la pregunta
+        # Mostrar ranking calculado por Python
+        if command == "ranking":
+            show_ranking(ranking)
+            continue
+
+        # Explicar ranking utilizando Ollama
+        if command in {
+            "explicar ranking",
+            "explica ranking",
+            "analizar ranking",
+        }:
+            print("\nGenerando explicación del ranking...\n")
+
+            explanation = ranking_explainer.explain(
+                ranking=ranking,
+                weights=evaluator.weights,
+            )
+
+            print("=" * 60)
+            print("EXPLICACIÓN DEL RANKING")
+            print("=" * 60)
+            print()
+            print(explanation)
+            print()
+
+            continue
+
+        # 8. Pregunta documental mediante RAG
         query_embedding = embedding_model.encode_query(query)
 
-        # 7. Recuperar contexto relevante
         results = vector_store.search(
             query_embedding=query_embedding,
             top_k=min(6, vector_store.count()),
@@ -101,7 +179,6 @@ def main():
                 }
             )
 
-        # 8. Generar respuesta con el LLM
         answer = rag_generator.generate_answer(
             question=query,
             contexts=contexts,

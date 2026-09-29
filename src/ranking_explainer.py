@@ -17,11 +17,14 @@ class RankingExplainer:
             (
                 f"{position}. {supplier['name']}\n"
                 f"Tiempo de entrega: "
-                f"{supplier['lead_time_days']} días\n"
+                f"{supplier['lead_time_days']} días "
+                f"({supplier['lead_time_comparison']})\n"
                 f"Capacidad mensual: "
-                f"{supplier['monthly_capacity']:,} unidades\n"
+                f"{supplier['monthly_capacity']:,} unidades "
+                f"({supplier['capacity_comparison']})\n"
                 f"Condiciones de pago: "
-                f"{supplier['payment_terms_days']} días\n"
+                f"{supplier['payment_terms_days']} días "
+                f"({supplier['payment_terms_comparison']})\n"
                 f"Puntaje final calculado por Python: "
                 f"{supplier['final_score']}\n"
             )
@@ -43,18 +46,23 @@ class RankingExplainer:
         system_prompt = """
 Eres un asistente especializado en evaluación de proveedores.
 
-El ranking y los puntajes finales ya fueron calculados por Python.
-Tu función es únicamente explicar los resultados.
+Python ya calculó:
+- los puntajes,
+- el orden del ranking,
+- y las comparaciones relativas de cada criterio.
+
+Tu única función es redactar una explicación clara.
 
 REGLAS OBLIGATORIAS:
-- NO recalcules los puntajes.
-- NO modifiques los puntajes finales.
+- NO recalcules ningún dato.
 - NO cambies el orden del ranking.
-- Utiliza únicamente los valores reales proporcionados.
+- NO contradigas las comparaciones proporcionadas por Python.
+- NO decidas por tu cuenta qué valor es mayor o menor.
+- Utiliza las etiquetas comparativas exactamente como referencia.
 - NO inventes requisitos, SLA, límites o criterios.
 - NO afirmes que un proveedor incumple o no es viable.
 - NO inventes puntajes parciales.
-- Menciona el puntaje final, pero explica usando los datos reales.
+- Menciona los valores reales y el puntaje final.
 - Usa máximo 2 puntos por proveedor.
 - Usa máximo 180 palabras en total.
 - Termina con una conclusión de máximo 2 líneas.
@@ -63,16 +71,16 @@ REGLAS OBLIGATORIAS:
 """
 
         user_prompt = f"""
-PESOS UTILIZADOS POR EL MOTOR DE PYTHON:
+PESOS UTILIZADOS POR PYTHON:
 
 {weights_text}
 
-RANKING Y DATOS REALES:
+RANKING, DATOS Y COMPARACIONES CALCULADAS POR PYTHON:
 
 {ranking_text}
 
-Explica brevemente por qué los proveedores quedaron en ese orden.
-No realices cálculos nuevos.
+Explica brevemente el ranking.
+No realices ninguna comparación nueva.
 """
 
         response = chat(
